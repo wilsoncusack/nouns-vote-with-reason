@@ -25,19 +25,6 @@ export function PaginatedVoteList({ voterId }: VoteListOptions) {
   const { data, error, isLoading, isValidating, size, setSize } =
     useSWRInfinite((...args) => getKey(...args, voterId), fetcher);
 
-  const lastVoteElementRef = useCallback(
-    async (node: HTMLDivElement) => {
-      if (observer.current) observer.current.disconnect();
-      observer.current = new IntersectionObserver(async entries => {
-        if (entries[0].isIntersecting) {
-          await setSize(size + 1);
-        }
-      });
-      if (node) observer.current.observe(node);
-    },
-    [setSize, size]
-  );
-
   const votes = useMemo(() => data?.flat() || [], [data]);
   const isLoadingMore = useMemo(
     () =>
@@ -54,6 +41,20 @@ export function PaginatedVoteList({ voterId }: VoteListOptions) {
     [data, isValidating, size]
   );
 
+  const loadMoreRef = useCallback(
+    async (node: HTMLDivElement) => {
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver(async entries => {
+        if (entries[0].isIntersecting && !isLoadingMore && !isReachingEnd) {
+          console.log('intersecting');
+          await setSize(size + 1);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [setSize, size, isLoadingMore, isReachingEnd]
+  );
+
   if (!votes) {
     return <div>Loading...</div>;
   }
@@ -64,12 +65,8 @@ export function PaginatedVoteList({ voterId }: VoteListOptions) {
 
   return (
     <div className="flex flex-col justify-center items-center">
-      <VoteList votes={votes} />
-      {isLoadingMore || isRefreshing ? (
-        <h6 className="text-gray-600 text-s">Loading...</h6>
-      ) : !isReachingEnd ? (
-        <div ref={lastVoteElementRef} className="h-4" />
-      ) : null}
+      <VoteList votes={votes} loadMoreRef={loadMoreRef} />
+      {isLoadingMore && <h6 className="text-gray-600 text-s">Loading...</h6>}
     </div>
   );
 }
